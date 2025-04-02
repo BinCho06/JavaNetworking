@@ -23,6 +23,10 @@ public class ClientHandler implements Runnable{
             this.uuid = uuid;
             this.clientUsername = bufferedReader.readLine();
 
+            bufferedWriter.write(uuid);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+
             clientHandlers.add(this);
             broadcastMessage("SERVER: " + clientUsername + " has entered the chat!");
         } catch (IOException e) {
