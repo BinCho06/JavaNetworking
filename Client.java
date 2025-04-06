@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -40,23 +41,24 @@ public class Client {
 
             listenForMessages();
             listenForUDP();
-            sendMessage();
+            sendMessages();
         } catch (IOException e) {
             closeEverything();
             System.out.println("Server handshake failed");
         }
     }
 
-    private void sendMessage() {
+    private void sendMessages() {
         Scanner scanner = new Scanner(System.in);
+        String messageToSend;
         try {
-            bufferedWriter.write(username);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
-
             while(socket.isConnected()) {
-                String messageToSend = scanner.nextLine();
-                bufferedWriter.write(username+": "+messageToSend);
+                messageToSend = scanner.nextLine();
+                if(messageToSend.equals("udp")){ //temporary (testing only)
+                    sendUDPpacket(uuid+" "+messageToSend);
+                    continue;
+                }
+                bufferedWriter.write(messageToSend);
                 bufferedWriter.newLine();
                 bufferedWriter.flush();
             }
@@ -85,6 +87,20 @@ public class Client {
         }).start();
     }
 
+    public void sendUDPpacket(String message){
+        byte[] buffer = new byte[256];
+        DatagramPacket packet;
+        InetAddress address;
+        try {
+            buffer = message.getBytes();
+            address = InetAddress.getByName("localhost");
+            packet = new DatagramPacket(buffer, buffer.length, address, 4890);
+            udpSocket.send(packet);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void listenForUDP() {
         new Thread(new Runnable() {
             @Override
@@ -92,6 +108,7 @@ public class Client {
                 byte[] buffer = new byte[256];
                 String message;
                 String packetUUID;
+                String data;
                 try {
                     while(!udpSocket.isClosed()){
                         //Receive UDP
@@ -99,16 +116,22 @@ public class Client {
                         udpSocket.receive(packet);
                         message = new String(packet.getData(), 0, packet.getLength());
                         
-                        System.out.println("Received UDP:" + message);
+                        //System.out.println("Received UDP: " + message);
                         packetUUID = message.split(" ")[0];
+                        data = message.split(" ")[1];
                         //todo
-
+                        if(packetUUID.equals(uuid)) syncServerState(data);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         }).start();
+    }
+
+    private void syncServerState(String data){
+        //TODO
+        System.out.println("UDP Server: "+data);
     }
 
     public void closeEverything() {
@@ -126,7 +149,7 @@ public class Client {
         String username = "Guest"+(int)(Math.random()*100);
 
         Socket socket = new Socket("localhost",4890);
-        DatagramSocket udpSocket = new DatagramSocket(4890);
+        DatagramSocket udpSocket = new DatagramSocket();
         Client client = new Client(socket, udpSocket, username);
         client.establishConnection();
     }

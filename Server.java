@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.UUID;
@@ -37,15 +38,26 @@ public class Server {
     }
 
     private void listenForUDP() {
-        byte[] buffer = new byte[256];
+        int port;
+        byte[] buffer;
+        String response;
+        DatagramPacket packet;
+        InetAddress address;
         try {
             while(!udpSocket.isClosed()){
+                buffer = new byte[256];
                 //Receive UDP
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                packet = new DatagramPacket(buffer, buffer.length);
                 udpSocket.receive(packet);
                 String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println("Received:" + message);
+                System.out.println("Received from: " + message.split(" ")[0] + " Message: "+message.split(" ")[1]);
 
+                response = message.split(" ")[0]+" Received!"; //TODO unsafe (data injection)
+                buffer = response.getBytes();
+                address = packet.getAddress();
+                port = packet.getPort();
+                packet = new DatagramPacket(buffer, buffer.length, address, port);
+                udpSocket.send(packet);
             }
         } catch (IOException e) {
             e.printStackTrace();
