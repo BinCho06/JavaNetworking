@@ -1,13 +1,8 @@
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.util.Scanner;
+import java.io.*;
+import java.net.*;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
 
 public class Client {
     
@@ -17,53 +12,152 @@ public class Client {
     private BufferedWriter bufferedWriter;
     private String uuid;
     private String username;
+    private Player player;
+    private Game game;
+    private GameState gameState;
+    private JFrame frame;
+    private JTextArea messageArea;
 
     public Client(Socket socket, DatagramSocket udpSocket, String username) {
         try {
             this.socket = socket;
             this.udpSocket = udpSocket;
-            //socket.setSoTimeout(1000); //handle server close
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             this.username = username;
+
+            this.gameState = new GameState();
+            this.game = new Game(gameState);
+            this.game.start(); //this is all messy, but it works for now
         } catch (IOException e) {
             closeEverything();
         }
+    }
+
+    private void initializeGUI() { //Have to replace this with a proper GUI
+        frame = new JFrame("Client - " + username);
+        frame.setSize(600, 400);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
+
+        // Add a panel to represent the game state
+        JPanel gamePanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                game.render(g); // Call the render method of the game object
+            }
+        };
+        gamePanel.setBackground(Color.WHITE);
+
+        // Add a KeyListener to the gamePanel
+        gamePanel.setFocusable(true);
+        gamePanel.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_W:
+                        player.up = true;
+                        break;
+                    case KeyEvent.VK_A:
+                        player.left = true;
+                        break;
+                    case KeyEvent.VK_S:
+                        player.down = true;
+                        break;
+                    case KeyEvent.VK_D:
+                        player.right = true;
+                        break;
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_W:
+                        player.up = false;
+                        break;
+                    case KeyEvent.VK_A:
+                        player.left = false;
+                        break;
+                    case KeyEvent.VK_S:
+                        player.down = false;
+                        break;
+                    case KeyEvent.VK_D:
+                        player.right = false;
+                        break;
+                }
+            }
+        });
+
+        frame.add(gamePanel, BorderLayout.CENTER);
+
+        // Add a panel for chat components
+        JPanel chatPanel = new JPanel();
+        chatPanel.setLayout(new BorderLayout());
+
+        // Add a text area to display messages
+        messageArea = new JTextArea(5, 20);
+        messageArea.setEditable(false);
+        messageArea.setFocusable(false);
+        chatPanel.add(new JScrollPane(messageArea), BorderLayout.CENTER);
+
+        // Add a text field for user input
+        JTextField inputField = new JTextField();
+        chatPanel.add(inputField, BorderLayout.SOUTH);
+
+        // Add an action listener to send messages
+        inputField.addActionListener(evt -> {
+            String messageToSend = inputField.getText();
+            inputField.setText("");
+            messageArea.append(username+": "+messageToSend + "\n");
+            messageArea.setCaretPosition(messageArea.getDocument().getLength());
+            sendMessage(messageToSend);
+        });
+
+        frame.add(chatPanel, BorderLayout.SOUTH);
+        frame.setVisible(true);
     }
 
     public void establishConnection() {
+        sendClientInfo();
+        getServerInfo();
+        
+        initializeGUI();
+        listenForMessages();
+        listenForUDP();
+    }
+
+    private void sendClientInfo() {
+        sendMessage(username);
+    }
+
+    private void getServerInfo() {
         try {
-            bufferedWriter.write(username);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
+            String serverMessage = bufferedReader.readLine(); //format: uuid player:x:y player:x:y...
+            this.uuid = serverMessage.substring(0, 36);
 
-            this.uuid = bufferedReader.readLine();
+            String[] players = serverMessage.substring(37).split(" ");
+            Player tempPlayer;
+            for (int i=0; i<players.length; i++) {
+                String[] data = players[i].split(":");
+                if(data.length != 3) continue;
 
-            listenForMessages();
-            listenForUDP();
-            sendMessages();
-        } catch (IOException e) {
+                tempPlayer = new Player(data[0], Integer.parseInt(data[1]), Integer.parseInt(data[2]));
+                if(i == 0) this.player = tempPlayer;
+                gameState.addPlayer(tempPlayer);
+            }
+        } catch (Exception e) {
             closeEverything();
-            System.out.println("Server handshake failed");
         }
     }
 
-    private void sendMessages() {
-        Scanner scanner = new Scanner(System.in);
-        String messageToSend;
+    private void sendMessage(String messageToSend) {
         try {
-            while(socket.isConnected()) {
-                messageToSend = scanner.nextLine();
-                if(messageToSend.equals("udp")){ //temporary (testing only)
-                    sendUDPpacket(uuid+" "+messageToSend);
-                    continue;
-                }
-                bufferedWriter.write(messageToSend);
-                bufferedWriter.newLine();
-                bufferedWriter.flush();
-            }
+            bufferedWriter.write(messageToSend);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
         } catch (Exception e) {
-            scanner.close();
             closeEverything();
         }
     }
@@ -76,9 +170,8 @@ public class Client {
                 while(socket.isConnected()) {
                     try {
                         message = bufferedReader.readLine();
-                        //if (message == null) throw new IOException(); //server closes
-                        System.out.println(message);
-                    //} catch (SocketTimeoutException e) {
+                        messageArea.append(message + "\n");
+                        messageArea.setCaretPosition(messageArea.getDocument().getLength());
                     } catch (IOException e) {
                         closeEverything();
                     }
@@ -120,7 +213,7 @@ public class Client {
                         packetUUID = message.split(" ")[0];
                         data = message.split(" ")[1];
                         //todo
-                        if(packetUUID.equals(uuid)) syncServerState(data);
+                        if(packetUUID.equals(uuid)) syncClientState(data);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -129,7 +222,7 @@ public class Client {
         }).start();
     }
 
-    private void syncServerState(String data){
+    private void syncClientState(String data){
         //TODO
         System.out.println("UDP Server: "+data);
     }
@@ -146,7 +239,10 @@ public class Client {
     }
 
     public static void main(String[] args) throws IOException{
-        String username = "Guest"+(int)(Math.random()*100);
+        String username = JOptionPane.showInputDialog("Enter your username: ");
+        if(username == null || username.trim().isEmpty()) {
+            username = "Guest" + (int)(Math.random()*100);
+        }
 
         Socket socket = new Socket("localhost",4890);
         DatagramSocket udpSocket = new DatagramSocket();

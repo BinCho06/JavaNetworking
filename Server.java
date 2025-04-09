@@ -10,13 +10,20 @@ public class Server {
 
     private ServerSocket serverSocket;
     private DatagramSocket udpSocket;
+    private GameState gameState;
+    private Game game;
+
+    private static final int PORT = 4890;
 
     public Server(ServerSocket serverSocket, DatagramSocket udpSocket){
         this.serverSocket = serverSocket;
         this.udpSocket = udpSocket;
+        this.gameState = new GameState();
+        this.game = new Game(gameState);
     }
 
     public void start() {
+        game.start();
         new Thread(this::listenForUDP).start();
         handleTCPclients();
     }
@@ -28,9 +35,11 @@ public class Server {
                 Socket socket = serverSocket.accept();
                 uuid=UUID.randomUUID().toString();
                 System.out.println("A new client with uuid:"+uuid+" has connected!");
-                ClientHandler clientHandler = new ClientHandler(socket, uuid);
-                Thread thread = new Thread(clientHandler);
-                thread.start();
+
+                Player player = new Player(uuid);
+                ClientHandler clientHandler = new ClientHandler(socket, gameState, player);
+                gameState.addPlayer(player); //TODO: add player to gameState before making a client handler or sth like that
+                new Thread(clientHandler).start();
             }
         } catch(IOException e) {
             e.printStackTrace();
@@ -40,7 +49,9 @@ public class Server {
     private void listenForUDP() {
         int port;
         byte[] buffer;
-        String response;
+        String message;
+        String data;
+        String uuid;
         DatagramPacket packet;
         InetAddress address;
         try {
@@ -49,11 +60,14 @@ public class Server {
                 //Receive UDP
                 packet = new DatagramPacket(buffer, buffer.length);
                 udpSocket.receive(packet);
-                String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println("Received from: " + message.split(" ")[0] + " Message: "+message.split(" ")[1]);
+                message = new String(packet.getData(), 0, packet.getLength());
+                uuid = message.substring(0, 36);
+                data = message.substring(36);
+                System.out.println("Received from: " + uuid + " Data: "+data);
+                //TODO: syncServerState(data);
 
-                response = message.split(" ")[0]+" Received!"; //TODO unsafe (data injection)
-                buffer = response.getBytes();
+                //Send UDP
+                buffer = gameState.getData(uuid).getBytes();
                 address = packet.getAddress();
                 port = packet.getPort();
                 packet = new DatagramPacket(buffer, buffer.length, address, port);
@@ -74,8 +88,8 @@ public class Server {
     }
 
     public static void main(String[] args) throws IOException{
-        ServerSocket serverSocket = new ServerSocket(4890);
-        DatagramSocket udpSocket = new DatagramSocket(4890);
+        ServerSocket serverSocket = new ServerSocket(PORT);
+        DatagramSocket udpSocket = new DatagramSocket(PORT);
         Server server = new Server(serverSocket, udpSocket);
         server.start();
     }
