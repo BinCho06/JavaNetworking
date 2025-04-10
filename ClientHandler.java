@@ -15,9 +15,11 @@ public class ClientHandler implements Runnable{
     private String uuid;
     private String username; //TODO fix this player nonsense
     private Player player;
+    private GameState gameState;
 
     public ClientHandler(Socket socket, GameState gameState, Player player){
         try {
+            this.gameState = gameState;
             this.socket = socket;
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
@@ -28,7 +30,7 @@ public class ClientHandler implements Runnable{
             this.player = player;
             this.uuid = player.getUUID();
             
-            bufferedWriter.write(uuid+getGameState(gameState));
+            bufferedWriter.write(uuid+" "+player.getPlayer()+gameState.getData());
             bufferedWriter.newLine();
             bufferedWriter.flush();
 
@@ -84,14 +86,6 @@ public class ClientHandler implements Runnable{
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public String getGameState(GameState gameState) {
-        String s = " "+player.getPlayer();
-        for (Player player : gameState.getPlayers()) {
-            s += " " + player.getPlayer();
-        }
-        return s;
     }
 
     public String getUsername() {
