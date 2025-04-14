@@ -1,24 +1,28 @@
 import java.awt.Graphics;
 
+import javax.swing.JPanel;
+
 public class Game extends Thread  {
     private boolean running = true;
     private final int TARGET_FPS = 60;
     private final long OPTIMAL_TIME = 1000 / TARGET_FPS;
     private GameState gameState;
     private Runnable sendDataCallback;
+    private JPanel gamePanel;
     
-    public Game(GameState gameState, Runnable sendDataCallback) {
+    public Game(GameState gameState, Runnable sendDataCallback, JPanel gamePanel) {
         this.gameState = gameState;
         this.sendDataCallback = sendDataCallback;
+        this.gamePanel = gamePanel;
     }
 
     public void run() {
         while (running) {
             long startTime = System.currentTimeMillis();
 
-            System.out.println(gameState.getAllData());
-            update();
+            gameState.update();
             sendDataCallback.run();
+            gamePanel.repaint();
 
             long elapsedTime = System.currentTimeMillis() - startTime;
             long sleepTime = Math.max(OPTIMAL_TIME - elapsedTime, 0);
@@ -28,10 +32,6 @@ public class Game extends Thread  {
                 e.printStackTrace();
             }
         }
-    }
-
-    private void update() {
-        gameState.update();
     }
 
     public void render(Graphics g) {

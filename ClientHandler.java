@@ -30,7 +30,7 @@ public class ClientHandler implements Runnable{
             this.player = new Player(uuid, username);
             this.gameState.addPlayer(player);
             
-            bufferedWriter.write(uuid+" "+player.toString()+gameState.getAllData());
+            bufferedWriter.write(uuid+" "+player.toString()+gameState.getVisibleData(uuid).substring(36));
             bufferedWriter.newLine();
             bufferedWriter.flush();
 
@@ -69,7 +69,7 @@ public class ClientHandler implements Runnable{
     }
 
     public void removeClientHandler() {
-        //gameState.removePlayer(player); TODO consider adding the gamestate object to this class aswell
+        gameState.removePlayer(player); //TODO remove player from CLIENT too
         clientHandlers.remove(this);
         broadcastMessage("SERVER: " + username + " has left the chat!");
         System.out.println("A client with uuid:"+uuid+" has disconnected!");

@@ -27,7 +27,6 @@ public class Client {
             this.username = username;
 
             this.gameState = new GameState();
-            this.game = new Game(gameState, this::sendPlayerMovement);
         } catch (IOException e) {
             closeEverything();
         }
@@ -115,14 +114,17 @@ public class Client {
 
         frame.add(chatPanel, BorderLayout.SOUTH);
         frame.setVisible(true);
+
+        game = new Game(gameState, this::sendPlayerMovement, gamePanel);
     }
 
     public void establishConnection() {
         sendClientInfo();
         getServerInfo();
+
+        initializeGUI();
         game.start();
         
-        initializeGUI();
         listenForMessages();
         listenForUDP();
     }
@@ -235,7 +237,6 @@ public class Client {
     }
 
     private void syncClientState(String data){
-        //todo fix the client state (why one player too much is added, actualy display the state)
         String[] playersData = data.split(" ");
         
         for (String playerData : playersData) {
@@ -247,6 +248,7 @@ public class Client {
             int y = Integer.parseInt(attributes[2]);
     
             // Check if this is the current client’s player
+            System.out.println(playerUsername + " " + username);
             if (playerUsername.equals(username)) {
                 player.setX(x);
                 player.setY(y);

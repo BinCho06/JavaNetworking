@@ -17,6 +17,10 @@ public class GameState {
         players.add(player);
     }
 
+    public void removePlayer(Player player) {
+        players.remove(player);
+    }
+
     public String getAllData(){
         String data="";
         for (Player player : players) {
@@ -27,7 +31,7 @@ public class GameState {
     public String getVisibleData(String uuid){
         String data=uuid;
         for (Player player : players){
-            if(Math.abs(player.getX() - getPlayer(uuid).getX()) > 100) continue;
+            if(Math.abs(player.getX() - getPlayer(uuid).getX()) > 100 || player.getUUID().equals(uuid)) continue;
             data +=  " "+player.toString();
         }
         return data;
