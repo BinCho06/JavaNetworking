@@ -11,7 +11,6 @@ public class Server {
     private ServerSocket serverSocket;
     private DatagramSocket udpSocket;
     private GameState gameState;
-    private Game game;
 
     private static final int PORT = 4890;
 
@@ -19,13 +18,24 @@ public class Server {
         this.serverSocket = serverSocket;
         this.udpSocket = udpSocket;
         this.gameState = new GameState();
-        this.game = new Game(gameState);
     }
 
     public void start() {
-        game.start();
+        new Thread(this::updateGameState).start();
         new Thread(this::listenForUDP).start();
         handleTCPclients();
+    }
+
+    private void updateGameState() {
+        try {
+            while(!serverSocket.isClosed()) {
+                gameState.update();
+                Thread.sleep(1000 / 60);
+            }
+            System.out.println("Server closed!");
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void handleTCPclients() {
@@ -36,11 +46,10 @@ public class Server {
                 uuid=UUID.randomUUID().toString();
                 System.out.println("A new client with uuid:"+uuid+" has connected!");
 
-                Player player = new Player(uuid);
-                ClientHandler clientHandler = new ClientHandler(socket, gameState, player);
-                gameState.addPlayer(player); //TODO: add player to gameState before making a client handler or sth like that
+                ClientHandler clientHandler = new ClientHandler(socket, gameState, uuid);
                 new Thread(clientHandler).start();
             }
+            System.out.println("Server closed!");
         } catch(IOException e) {
             e.printStackTrace();
         }
@@ -63,11 +72,10 @@ public class Server {
                 message = new String(packet.getData(), 0, packet.getLength());
                 uuid = message.substring(0, 36);
                 data = message.substring(36);
-                System.out.println("Received from: " + uuid + " Data: "+data);
-                //TODO: syncServerState(data);
+                syncServerState(uuid, data);
 
                 //Send UDP
-                buffer = gameState.getData(uuid).getBytes();
+                buffer = gameState.getVisibleData(uuid).getBytes();
                 address = packet.getAddress();
                 port = packet.getPort();
                 packet = new DatagramPacket(buffer, buffer.length, address, port);
@@ -75,6 +83,18 @@ public class Server {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void syncServerState(String uuid, String data) {
+        Player player = gameState.getPlayer(uuid);
+        if(player != null) {
+            player.up = data.charAt(0) == '1';
+            player.down = data.charAt(1) == '1';
+            player.left = data.charAt(2) == '1';
+            player.right = data.charAt(3) == '1';
+        } else {
+            System.out.println("Player with uuid: " + uuid + " not found!");
         }
     }
 

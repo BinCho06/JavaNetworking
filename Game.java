@@ -5,16 +5,20 @@ public class Game extends Thread  {
     private final int TARGET_FPS = 60;
     private final long OPTIMAL_TIME = 1000 / TARGET_FPS;
     private GameState gameState;
+    private Runnable sendDataCallback;
     
-    public Game(GameState gameState) {
+    public Game(GameState gameState, Runnable sendDataCallback) {
         this.gameState = gameState;
+        this.sendDataCallback = sendDataCallback;
     }
 
     public void run() {
         while (running) {
             long startTime = System.currentTimeMillis();
 
+            System.out.println(gameState.getAllData());
             update();
+            sendDataCallback.run();
 
             long elapsedTime = System.currentTimeMillis() - startTime;
             long sleepTime = Math.max(OPTIMAL_TIME - elapsedTime, 0);

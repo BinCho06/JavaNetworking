@@ -17,8 +17,9 @@ public class ClientHandler implements Runnable{
     private Player player;
     private GameState gameState;
 
-    public ClientHandler(Socket socket, GameState gameState, Player player){
+    public ClientHandler(Socket socket, GameState gameState, String uuid){
         try {
+            this.uuid = uuid;
             this.gameState = gameState;
             this.socket = socket;
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -26,11 +27,10 @@ public class ClientHandler implements Runnable{
             
             this.username = bufferedReader.readLine(); //TODO more client info
 
-            player.setUsername(username);
-            this.player = player;
-            this.uuid = player.getUUID();
+            this.player = new Player(uuid, username);
+            this.gameState.addPlayer(player);
             
-            bufferedWriter.write(uuid+" "+player.getPlayer()+gameState.getData());
+            bufferedWriter.write(uuid+" "+player.toString()+gameState.getAllData());
             bufferedWriter.newLine();
             bufferedWriter.flush();
 
@@ -59,11 +59,9 @@ public class ClientHandler implements Runnable{
     public void broadcastMessage(String message) {
         for(ClientHandler clientHandler : clientHandlers) {
             try {
-                if(!clientHandler.uuid.equals(uuid)) {
-                    clientHandler.bufferedWriter.write(message);
-                    clientHandler.bufferedWriter.newLine();
-                    clientHandler.bufferedWriter.flush();
-                }
+                clientHandler.bufferedWriter.write(message);
+                clientHandler.bufferedWriter.newLine();
+                clientHandler.bufferedWriter.flush();
             } catch (IOException e) {
                 closeEverything();
             }

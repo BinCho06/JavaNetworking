@@ -27,8 +27,7 @@ public class Client {
             this.username = username;
 
             this.gameState = new GameState();
-            this.game = new Game(gameState);
-            this.game.start(); //this is all messy, but it works for now
+            this.game = new Game(gameState, this::sendPlayerMovement);
         } catch (IOException e) {
             closeEverything();
         }
@@ -110,7 +109,6 @@ public class Client {
         inputField.addActionListener(evt -> {
             String messageToSend = inputField.getText();
             inputField.setText("");
-            messageArea.append(username+": "+messageToSend + "\n");
             messageArea.setCaretPosition(messageArea.getDocument().getLength());
             sendMessage(messageToSend);
         });
@@ -122,6 +120,7 @@ public class Client {
     public void establishConnection() {
         sendClientInfo();
         getServerInfo();
+        game.start();
         
         initializeGUI();
         listenForMessages();
@@ -130,6 +129,19 @@ public class Client {
 
     private void sendClientInfo() {
         sendMessage(username);
+    }
+
+    public void sendPlayerMovement(){
+        sendUDPpacket(uuid+serializePlayerMovement(player));
+    }
+
+    private String serializePlayerMovement(Player player){
+        String data="";
+        data += player.up?"1":"0";
+        data += player.down?"1":"0";
+        data += player.left?"1":"0";
+        data += player.right?"1":"0";
+        return data;
     }
 
     private void getServerInfo() {
@@ -210,9 +222,9 @@ public class Client {
                         message = new String(packet.getData(), 0, packet.getLength());
                         
                         //System.out.println("Received UDP: " + message);
-                        packetUUID = message.split(" ")[0];
-                        data = message.split(" ")[1];
-                        //todo
+                        packetUUID = message.substring(0, 36);
+                        data = message.substring(36);
+                        
                         if(packetUUID.equals(uuid)) syncClientState(data);
                     }
                 } catch (IOException e) {
@@ -223,8 +235,33 @@ public class Client {
     }
 
     private void syncClientState(String data){
-        //TODO
-        System.out.println("UDP Server: "+data);
+        //todo fix the client state (why one player too much is added, actualy display the state)
+        String[] playersData = data.split(" ");
+        
+        for (String playerData : playersData) {
+            String[] attributes = playerData.split(":");
+            if (attributes.length != 3) continue; // Skip invalid data
+    
+            String playerUsername = attributes[0];
+            int x = Integer.parseInt(attributes[1]);
+            int y = Integer.parseInt(attributes[2]);
+    
+            // Check if this is the current client’s player
+            if (playerUsername.equals(username)) {
+                player.setX(x);
+                player.setY(y);
+            } else {
+                // Add or update other players in the game state
+                Player otherPlayer = gameState.getPlayerByUsername(playerUsername);
+                if (otherPlayer == null) {
+                    otherPlayer = new Player(playerUsername, x, y);
+                    gameState.addPlayer(otherPlayer);
+                } else {
+                    otherPlayer.setX(x);
+                    otherPlayer.setY(y);
+                }
+            }
+        }
     }
 
     public void closeEverything() {

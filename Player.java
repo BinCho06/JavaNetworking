@@ -4,8 +4,9 @@ public class Player {
     private String username;
     private String uuid;
     
-    public Player(String uuid){
+    public Player(String uuid, String username){
         this.uuid = uuid;
+        this.username = username;
         x = (int)(Math.random()*20);
         y = (int)(Math.random()*20);
     }
@@ -39,11 +40,14 @@ public class Player {
     public String getUsername(){
         return username;
     }
-    public String getPlayer(){
+    public String toString(){
         return username+":"+x+":"+y;
     }
 
-    public void setUsername(String username){
-        this.username = username;
+    public void setX(int x) {
+        this.x = x;
+    }
+    public void setY(int y) {
+        this.y = y;
     }
 }
