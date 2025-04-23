@@ -13,7 +13,7 @@ public class ClientHandler implements Runnable{
     private BufferedReader bufferedReader;
     private BufferedWriter bufferedWriter;
     private String uuid;
-    private String username; //TODO fix this player nonsense
+    private String username;
     private Player player;
     private GameState gameState;
 
@@ -25,20 +25,34 @@ public class ClientHandler implements Runnable{
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             
-            this.username = bufferedReader.readLine(); //TODO more client info
+            usernameHandshake();
 
             this.player = new Player(uuid, username);
             this.gameState.addPlayer(player);
             
-            bufferedWriter.write(uuid+" "+player.toString()+gameState.getVisibleData(uuid).substring(36));
+            bufferedWriter.write(gameState.getVisibleData(uuid));
             bufferedWriter.newLine();
             bufferedWriter.flush();
 
             clientHandlers.add(this);
             broadcastMessage("SERVER: " + username + " has entered the chat!");
+            System.out.println("A client with uuid:"+uuid+" and username: "+username+" has connected!");
         } catch (IOException e) {
             closeEverything();
         }
+    }
+
+    private void usernameHandshake() throws IOException {
+        this.username = bufferedReader.readLine();
+        while(gameState.getPlayerByUsername(username) != null) {
+            bufferedWriter.write("USERNAME_TAKEN");
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+            username = bufferedReader.readLine();
+        }
+        bufferedWriter.write("USERNAME_ACCEPTED");
+        bufferedWriter.newLine();
+        bufferedWriter.flush();
     }
 
     @Override
@@ -69,10 +83,10 @@ public class ClientHandler implements Runnable{
     }
 
     public void removeClientHandler() {
-        gameState.removePlayer(player); //TODO remove player from CLIENT too
+        gameState.removePlayer(player);
         clientHandlers.remove(this);
         broadcastMessage("SERVER: " + username + " has left the chat!");
-        System.out.println("A client with uuid:"+uuid+" has disconnected!");
+        System.out.println("A client with uuid:"+uuid+" and username: "+username+" has disconnected!");
     }
 
     public void closeEverything() {

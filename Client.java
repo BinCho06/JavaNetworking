@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
@@ -18,13 +19,12 @@ public class Client {
     private JFrame frame;
     private JTextArea messageArea;
 
-    public Client(Socket socket, DatagramSocket udpSocket, String username) {
+    public Client(Socket socket, DatagramSocket udpSocket) {
         try {
             this.socket = socket;
             this.udpSocket = udpSocket;
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            this.username = username;
 
             this.gameState = new GameState();
         } catch (IOException e) {
@@ -119,7 +119,7 @@ public class Client {
     }
 
     public void establishConnection() {
-        sendClientInfo();
+        usernameHandshake();
         getServerInfo();
 
         initializeGUI();
@@ -129,8 +129,23 @@ public class Client {
         listenForUDP();
     }
 
-    private void sendClientInfo() {
-        sendMessage(username);
+    private void usernameHandshake(){
+        try {
+            while(username == null){
+                username = JOptionPane.showInputDialog("Enter your username: ");
+                if(username == null || username.trim().isEmpty()) {
+                    username = "Guest" + (int)(Math.random()*100);
+                }
+                sendMessage(username);
+                String serverMessage = bufferedReader.readLine();
+                if(serverMessage.equals("USERNAME_TAKEN")) {
+                    username = null;
+                    JOptionPane.showMessageDialog(null, "Username already taken!");
+                }
+            }
+        } catch (IOException e) {
+            closeEverything();
+        }
     }
 
     public void sendPlayerMovement(){
@@ -150,6 +165,7 @@ public class Client {
         try {
             String serverMessage = bufferedReader.readLine(); //format: uuid player:x:y player:x:y...
             this.uuid = serverMessage.substring(0, 36);
+            System.out.println("message: " + serverMessage);
 
             String[] players = serverMessage.substring(37).split(" ");
             Player tempPlayer;
@@ -158,9 +174,10 @@ public class Client {
                 if(data.length != 3) continue;
 
                 tempPlayer = new Player(data[0], Integer.parseInt(data[1]), Integer.parseInt(data[2]));
-                if(i == 0) this.player = tempPlayer;
+                if(data[0].equals(username)) this.player = tempPlayer;
                 gameState.addPlayer(tempPlayer);
             }
+            
         } catch (Exception e) {
             closeEverything();
         }
@@ -238,6 +255,8 @@ public class Client {
 
     private void syncClientState(String data){
         String[] playersData = data.split(" ");
+        ArrayList<String> receivedPlayerUsernames = new ArrayList<>();
+        ArrayList<Player> playersToRemove = new ArrayList<>();
         
         for (String playerData : playersData) {
             String[] attributes = playerData.split(":");
@@ -246,9 +265,10 @@ public class Client {
             String playerUsername = attributes[0];
             int x = Integer.parseInt(attributes[1]);
             int y = Integer.parseInt(attributes[2]);
+
+            receivedPlayerUsernames.add(playerUsername);
     
             // Check if this is the current client’s player
-            System.out.println(playerUsername + " " + username);
             if (playerUsername.equals(username)) {
                 player.setX(x);
                 player.setY(y);
@@ -264,6 +284,16 @@ public class Client {
                 }
             }
         }
+
+        // Remove players from gameState that are not in the receivedPlayerUsernames list
+        for (Player player : gameState.getPlayers()) {
+            if (!receivedPlayerUsernames.contains(player.getUsername())) {
+                playersToRemove.add(player);
+            }
+        }
+        for (Player playerToRemove : playersToRemove) {
+            gameState.removePlayer(playerToRemove);
+        }
     }
 
     public void closeEverything() {
@@ -278,14 +308,9 @@ public class Client {
     }
 
     public static void main(String[] args) throws IOException{
-        String username = JOptionPane.showInputDialog("Enter your username: ");
-        if(username == null || username.trim().isEmpty()) {
-            username = "Guest" + (int)(Math.random()*100);
-        }
-
         Socket socket = new Socket("localhost",4890);
         DatagramSocket udpSocket = new DatagramSocket();
-        Client client = new Client(socket, udpSocket, username);
+        Client client = new Client(socket, udpSocket);
         client.establishConnection();
     }
 }

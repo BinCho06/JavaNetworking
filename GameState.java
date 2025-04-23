@@ -31,7 +31,7 @@ public class GameState {
     public String getVisibleData(String uuid){
         String data=uuid;
         for (Player player : players){
-            if(Math.abs(player.getX() - getPlayer(uuid).getX()) > 100 || player.getUUID().equals(uuid)) continue;
+            if(Math.abs(player.getX() - getPlayer(uuid).getX()) > 100 || Math.abs(player.getY() - getPlayer(uuid).getY()) > 100) continue;
             data +=  " "+player.toString();
         }
         return data;
@@ -39,6 +39,9 @@ public class GameState {
 
     public ArrayList<Player> getPlayers() {
         return players;
+    }
+    public ArrayList<Player> getPlayersClone() {
+        return new ArrayList<>(players);
     }
     public Player getPlayer(String uuid) {
         for (Player player : players) {

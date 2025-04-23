@@ -44,7 +44,6 @@ public class Server {
             while(!serverSocket.isClosed()) {
                 Socket socket = serverSocket.accept();
                 uuid=UUID.randomUUID().toString();
-                System.out.println("A new client with uuid:"+uuid+" has connected!");
 
                 ClientHandler clientHandler = new ClientHandler(socket, gameState, uuid);
                 new Thread(clientHandler).start();

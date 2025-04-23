@@ -35,7 +35,7 @@ public class Game extends Thread  {
     }
 
     public void render(Graphics g) {
-        for (Player player : gameState.getPlayers()) {
+        for (Player player : gameState.getPlayersClone()) {
             g.drawString(player.getUsername(), player.getX(), player.getY());
         }
     }
